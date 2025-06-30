@@ -1,0 +1,24 @@
+{
+  "name": "react-native-temme",
+  "version": "1.0.0",
+  "description": "temme react native",
+  "main": "src/temme.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cjd6568358/react-native-temme.git"
+  },
+  "keywords": [
+    "temme",
+    "react",
+    "native"
+  ],
+  "author": "jie.cao",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cjd6568358/react-native-temme/issues"
+  },
+  "homepage": "https://github.com/cjd6568358/react-native-temme#readme"
+}
