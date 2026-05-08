@@ -1,0 +1,62 @@
+<!--
+  片段测试用例
+  对应 docs/10-snippets.md
+  测试: 片段定义 @xxx = { }、片段展开 @xxx;、嵌套片段
+-->
+<div id="snippet-test">
+  <!-- 模拟 StackOverflow 问题页面 -->
+  <div class="question-section">
+    <div class="ask-info">
+      <span class="time" title="2024-01-15 10:30">2024-01-15</span>
+      <span class="username">Alice</span>
+      <span class="reputation">1250</span>
+    </div>
+    <div class="edit-info">
+      <span class="time" title="2024-01-16 14:20">2024-01-16</span>
+      <span class="username">Bob</span>
+      <span class="reputation">3800</span>
+    </div>
+  </div>
+
+  <!-- 模拟天猫评论场景 - 初次评论和追加评论结构相同 -->
+  <div class="review-section">
+    <div class="initial-review">
+      <div class="review-content">
+        <span class="reviewer">用户甲</span>
+        <span class="rating" data-stars="5">五星好评</span>
+        <p class="review-text">商品质量很好，物流很快</p>
+      </div>
+    </div>
+    <div class="append-review">
+      <div class="review-content">
+        <span class="reviewer">用户甲</span>
+        <span class="rating" data-stars="4">四星</span>
+        <p class="review-text">用了一段时间，还不错</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 嵌套片段测试 -->
+  <div class="product-grid">
+    <div class="product-card">
+      <div class="card-header">
+        <span class="product-name">iPhone 15</span>
+        <span class="product-brand">Apple</span>
+      </div>
+      <div class="card-body">
+        <span class="price" data-currency="USD">999</span>
+        <span class="stock">有货</span>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="card-header">
+        <span class="product-name">Galaxy S24</span>
+        <span class="product-brand">Samsung</span>
+      </div>
+      <div class="card-body">
+        <span class="price" data-currency="USD">899</span>
+        <span class="stock">有货</span>
+      </div>
+    </div>
+  </div>
+</div>

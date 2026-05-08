@@ -1,0 +1,38 @@
+<!--
+  深路径选择器测试用例
+  对应 README 中的已知问题：
+  - #pmlist tbody tr[id] 无法取到数据（_useHtmlParser2=true 时）
+  - #pmlist tr[id] 正常
+  - .headaction .notabs@moderator{$moderator} 无法取到数据
+  - .notabs@moderator{$moderator} 正常
+-->
+<div id="pmlist">
+  <table>
+    <tbody>
+      <tr id="msg-1001">
+        <td class="author">张三</td>
+        <td class="title">你好</td>
+      </tr>
+      <tr id="msg-1002">
+        <td class="author">李四</td>
+        <td class="title">再见</td>
+      </tr>
+      <tr id="msg-1003">
+        <td class="author">王五</td>
+        <td class="title">谢谢</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="headaction">
+  <div class="notabs">
+    <span class="moderator">管理员A</span>
+  </div>
+  <div class="notabs">
+    <span class="moderator">管理员B</span>
+  </div>
+  <div class="notabs">
+    <span class="moderator">管理员C</span>
+  </div>
+</div>
