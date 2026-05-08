@@ -1,5 +1,6 @@
 # react-native-temme
-temme for react native，fork 自(feichao/temme)[https://github.com/feichao93/temme],替换了默认的cheerio。具体用法请参考 https://github.com/feichao93/temme/tree/master/docs/zh-cn
+temme for react native，fork 自(feichao/temme)[https://github.com/feichao93/temme],替换了默认的cheerio。
+具体语法请参考 docs目录
 # 已知问题
 默认情况下执行效率比较低下，可以尝试修改temme.ts第56行_useHtmlParser2为true提升性能。
 
