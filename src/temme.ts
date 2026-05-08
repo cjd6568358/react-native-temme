@@ -17,6 +17,7 @@ import {
   ExpandedTemmeSelector,
   NormalSelector,
   ParentRefSelector,
+  Section,
   SnippetDefine,
   TemmeSelector,
 } from './interfaces'
@@ -29,7 +30,7 @@ export interface TemmeParser {
 // @ts-ignore
 import parser from './grammar.js'
 
-const temmeParser: TemmeParser = parser
+const temmeParser: TemmeParser = parser as unknown as TemmeParser
 
 export { cheerio, temmeParser }
 
@@ -64,7 +65,7 @@ export default function temme(
   let rootSelectorArray: TemmeSelector[]
   if (typeof selector === 'string') {
     if (selectorCache?.has(selector)) {
-      rootSelectorArray = selectorCache.get(selector)
+      rootSelectorArray = selectorCache.get(selector)!
     } else {
       rootSelectorArray = temmeParser.parse(selector)
       selectorCache.set(selector, rootSelectorArray)
@@ -122,7 +123,7 @@ export default function temme(
     // 使用缓存获取展开后的选择器
     let expandedSelectors: ExpandedTemmeSelector[];
     if (expandedSelectorCache?.has(selectorArray)) {
-      expandedSelectors = expandedSelectorCache.get(selectorArray);
+      expandedSelectors = expandedSelectorCache.get(selectorArray)!;
     } else {
       expandedSelectors = expandSnippets(selectorArray);
       expandedSelectorCache.set(selectorArray, expandedSelectors);
@@ -134,7 +135,7 @@ export default function temme(
         // 使用缓存获取CSS选择器
         let cssSelector: string;
         if (cssSelectorCache.has(selector.sections)) {
-          cssSelector = cssSelectorCache.get(selector.sections);
+          cssSelector = cssSelectorCache.get(selector.sections)!;
         } else {
           cssSelector = makeNormalCssSelector(selector.sections);
           cssSelectorCache.set(selector.sections, cssSelector);
@@ -158,7 +159,7 @@ export default function temme(
         // 使用缓存获取CSS选择器
         let cssSelector: string;
         if (sectionCssCache.has(selector.section)) {
-          cssSelector = sectionCssCache.get(selector.section);
+          cssSelector = sectionCssCache.get(selector.section)!;
         } else {
           cssSelector = makeNormalCssSelector([selector.section]);
           sectionCssCache.set(selector.section, cssSelector);
@@ -185,15 +186,15 @@ export default function temme(
     for (const selector of selectorArray) {
       if (selector.type === 'snippet-expand') {
         invariant(snippetsMap.has(selector.name), msg.snippetNotDefined(selector.name))
-        const snippet = snippetsMap.get(selector.name)
-        
+        const snippet = snippetsMap.get(selector.name)!
+
         // 检查循环展开
         invariant(!expanded.includes(snippet.name), msg.circularSnippetExpansion(expanded.concat(snippet.name)))
-        
+
         // 使用缓存获取已展开的片段
         const cacheKey = snippet.name + ':' + expanded.join(',')
         if (snippetExpandCache?.has(cacheKey)) {
-          result.push(...snippetExpandCache.get(cacheKey))
+          result.push(...snippetExpandCache.get(cacheKey)!)
         } else {
           const nextExpanded = expanded.concat(snippet.name)
           const slice = expandSnippets(snippet.selectors, nextExpanded)
@@ -218,7 +219,7 @@ export default function temme(
     // 缓存属性限定符过滤结果
     let attributeQualifiers;
     if (qualifierCache?.has(section)) {
-      attributeQualifiers = qualifierCache.get(section);
+      attributeQualifiers = qualifierCache.get(section)!;
     } else {
       attributeQualifiers = section.qualifiers.filter(isAttributeQualifier);
       qualifierCache.set(section, attributeQualifiers);

@@ -60,7 +60,7 @@ export class CaptureResult {
     // 使用缓存获取过滤器函数
     let filterFn: FilterFn;
     if (this.filterFnCache.has(filter.name)) {
-      filterFn = this.filterFnCache.get(filter.name);
+      filterFn = this.filterFnCache.get(filter.name)!;
     } else {
       filterFn = this.filterDict[filter.name] || value[filter.name];
       invariant(typeof filterFn === 'function', msg.invalidFilter(filter.name));
