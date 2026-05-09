@@ -12,7 +12,7 @@ export const defaultFilterDict: Dict<FilterFn> = {
     return this.filter(Boolean)
   },
   flatten(this: any[][]) {
-    return this.reduce((r, a) => r.concat(a))
+    return Array.prototype.flat.call(this)
   },
   first(this: any[]) {
     return this[0]
