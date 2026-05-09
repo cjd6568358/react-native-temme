@@ -7,7 +7,7 @@ const fixturesDir = path.resolve(__dirname, "fixtures");
 
 /** 预处理 HTML：移除 script/style/comment 块，减少 parse5 tokenizer 工作量。
  *  这些内容不影响 temme 选择器的匹配结果。 */
-export function stripNonContent(html: string): string {
+export function htmlShaking(html: string): string {
   return (
     html
       .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "")
@@ -39,7 +39,7 @@ describe("selectorsMap 匹配测试", () => {
 
           // 经过预处理
           const startStripped = performance.now();
-          const stripped = stripNonContent(html);
+          const stripped = htmlShaking(html);
           const resultStripped = temme(stripped, selector);
           const timeStripped = performance.now() - startStripped;
 
