@@ -44,15 +44,6 @@ const snippetExpandCache = new Map<string, ExpandedTemmeSelector[]>();
 // 缓存属性限定符，避免重复过滤
 const qualifierCache = new Map();
 
-/** 预处理 HTML：移除 script/style/comment 块，减少 parse5 tokenizer 工作量。
- *  这些内容不影响 temme 选择器的匹配结果。 */
-function stripNonContent(html: string): string {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<!--[\s\S]*?-->/g, "");
-}
-
 export default function temme(
   html: string | CheerioStatic | CheerioElement,
   selector: string | TemmeSelector[],
@@ -63,12 +54,11 @@ export default function temme(
   // 优化cheerio加载，减少不必要的DOM操作
   let $: CheerioStatic
   if (typeof html === 'string') {
-    html = stripNonContent(html)
-    $ = cheerio.load(html, { decodeEntities: false, _useHtmlParser2: false })
+    $ = cheerio.load(html, { decodeEntities: true, _useHtmlParser2: false })
   } else if (isCheerioStatic(html)) {
     $ = html
   } else {
-    $ = cheerio.load(html, { _useHtmlParser2: true })
+    $ = cheerio.load(html, { _useHtmlParser2: false })
   }
 
   // 使用缓存获取选择器数组
