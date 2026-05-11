@@ -17,7 +17,6 @@ import {
   ExpandedTemmeSelector,
   NormalSelector,
   ParentRefSelector,
-  Section,
   SnippetDefine,
   TemmeSelector,
 } from './interfaces'
