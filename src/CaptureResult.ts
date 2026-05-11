@@ -70,23 +70,24 @@ export class CaptureResult {
   }
 
   private applyFilterList(initValue: any, filterList: Filter[]) {
-    // 如果没有过滤器，直接返回初始值
     if (filterList.length === 0) {
       return initValue;
     }
-    
-    return filterList.reduce((value, filter) => {
+
+    let value = initValue;
+    for (let i = 0; i < filterList.length; i++) {
+      const filter = filterList[i];
       if (filter.isArrayFilter) {
         invariant(Array.isArray(value), msg.arrayFilterAppliedToNonArrayValue(filter.name));
-        // 优化数组映射，减少函数调用开销
         const result = [];
-        for (let i = 0; i < value.length; i++) {
-          result.push(this.applyFilter(value[i], filter));
+        for (let j = 0; j < value.length; j++) {
+          result.push(this.applyFilter(value[j], filter));
         }
-        return result;
+        value = result;
       } else {
-        return this.applyFilter(value, filter);
+        value = this.applyFilter(value, filter);
       }
-    }, initValue);
+    }
+    return value;
   }
 }

@@ -36,13 +36,8 @@ export { cheerio, temmeParser }
 
 // 缓存已解析的选择器字符串，避免重复解析
 const selectorCache = new Map<string, TemmeSelector[]>()
-// 缓存CSS选择器字符串，避免重复生成
-const cssSelectorCache = new Map<Section[], string>();
-const sectionCssCache = new Map<Section, string>();
 // 缓存展开的片段选择器，避免重复计算
 const snippetExpandCache = new Map<string, ExpandedTemmeSelector[]>();
-// 缓存属性限定符，避免重复过滤
-const qualifierCache = new Map();
 
 export default function temme(
   html: string | CheerioStatic | CheerioElement,
@@ -64,7 +59,7 @@ export default function temme(
   // 使用缓存获取选择器数组
   let rootSelectorArray: TemmeSelector[]
   if (typeof selector === 'string') {
-    if (selectorCache?.has(selector)) {
+    if (selectorCache.has(selector)) {
       rootSelectorArray = selectorCache.get(selector)!
     } else {
       rootSelectorArray = temmeParser.parse(selector)
@@ -84,9 +79,9 @@ export default function temme(
   }
 
   // 减少对象创建，使用Object.assign一次性合并
-  const filterDict: Dict<FilterFn> = Object.assign({}, defaultFilterDict, extraFilters)
-  const modifierDict: Dict<ModifierFn> = Object.assign({}, defaultModifierDict, extraModifiers)
-  const procedureDict: Dict<ProcedureFn> = Object.assign({}, defaultProcedureDict, extraProcedures)
+  const filterDict: Dict<FilterFn> = Object.keys(extraFilters).length > 0 ? Object.assign({}, defaultFilterDict, extraFilters) : defaultFilterDict
+  const modifierDict: Dict<ModifierFn> = Object.keys(extraModifiers).length > 0 ? Object.assign({}, defaultModifierDict, extraModifiers) : defaultModifierDict
+  const procedureDict: Dict<ProcedureFn> = Object.keys(extraProcedures).length > 0 ? Object.assign({}, defaultProcedureDict, extraProcedures) : defaultProcedureDict
   const snippetsMap = new Map<string, SnippetDefine>()
   
   // 缓存展开后的选择器
@@ -100,29 +95,26 @@ export default function temme(
     // First pass: process SnippetDefine / FilterDefine / ModifierDefine / ProcedureDefine
     for (const selector of selectorArray) {
       if (selector.type === 'snippet-define') {
-        invariant(!snippetsMap?.has(selector.name), msg.snippetAlreadyDefined(selector.name))
+        invariant(!snippetsMap.has(selector.name), msg.snippetAlreadyDefined(selector.name))
         snippetsMap.set(selector.name, selector)
       } else if (selector.type === 'filter-define') {
         const { name, argsPart, code } = selector
         invariant(!(name in filterDict), msg.filterAlreadyDefined(name))
-        const funcString = `(function (${argsPart}) { ${code} })`
-        filterDict[name] = eval(funcString)
+        filterDict[name] = new Function(argsPart, code) as FilterFn
       } else if (selector.type === 'modifier-define') {
         const { name, argsPart, code } = selector
         invariant(!(name in modifierDict), msg.modifierAlreadyDefined(name))
-        const funcString = `(function (${argsPart}) { ${code} })`
-        modifierDict[name] = eval(funcString)
+        modifierDict[name] = new Function(argsPart, code) as ModifierFn
       } else if (selector.type === 'procedure-define') {
         const { name, argsPart, code } = selector
         invariant(!(name in procedureDict), msg.procedureAlreadyDefined(name))
-        const funcString = `(function (${argsPart}) { ${code} })`
-        procedureDict[name] = eval(funcString)
+        procedureDict[name] = new Function(argsPart, code) as ProcedureFn
       }
     }
 
     // 使用缓存获取展开后的选择器
     let expandedSelectors: ExpandedTemmeSelector[];
-    if (expandedSelectorCache?.has(selectorArray)) {
+    if (expandedSelectorCache.has(selectorArray)) {
       expandedSelectors = expandedSelectorCache.get(selectorArray)!;
     } else {
       expandedSelectors = expandSnippets(selectorArray);
@@ -132,39 +124,21 @@ export default function temme(
     // Second pass: process match and capture
     for (const selector of expandedSelectors) {
       if (selector.type === 'normal-selector') {
-        // 使用缓存获取CSS选择器
-        let cssSelector: string;
-        if (cssSelectorCache.has(selector.sections)) {
-          cssSelector = cssSelectorCache.get(selector.sections)!;
-        } else {
-          cssSelector = makeNormalCssSelector(selector.sections);
-          cssSelectorCache.set(selector.sections, cssSelector);
-        }
-        
+        const cssSelector = makeNormalCssSelector(selector.sections)
         const subCheerio = cntCheerio.find(cssSelector)
         if (subCheerio.length > 0) {
           // Only the first element will be captured.
           capture(result, subCheerio.first(), selector)
         }
         if (selector.arrayCapture) {
-          // 优化数组处理，减少不必要的函数调用
-          const elements = subCheerio.toArray();
-          const capturedResults = [];
-          for (let i = 0; i < elements.length; i++) {
-            capturedResults.push(helper($(elements[i]), selector.children).getResult());
-          }
-          result.add(selector.arrayCapture, capturedResults);
+          const capturedResults: any[] = []
+          subCheerio.each((_, elem) => {
+            capturedResults.push(helper($(elem), selector.children).getResult())
+          })
+          result.add(selector.arrayCapture, capturedResults)
         }
       } else if (selector.type === 'parent-ref-selector') {
-        // 使用缓存获取CSS选择器
-        let cssSelector: string;
-        if (sectionCssCache.has(selector.section)) {
-          cssSelector = sectionCssCache.get(selector.section)!;
-        } else {
-          cssSelector = makeNormalCssSelector([selector.section]);
-          sectionCssCache.set(selector.section, cssSelector);
-        }
-        
+        const cssSelector = makeNormalCssSelector([selector.section])
         if (cntCheerio.is(cssSelector)) {
           capture(result, cntCheerio, selector)
         }
@@ -180,7 +154,7 @@ export default function temme(
    * `expanded` is used to detect circular expansion. */
   function expandSnippets(
     selectorArray: TemmeSelector[],
-    expanded: string[] = [],
+    expanded: Set<string> = new Set(),
   ): ExpandedTemmeSelector[] {
     const result: ExpandedTemmeSelector[] = []
     for (const selector of selectorArray) {
@@ -189,14 +163,14 @@ export default function temme(
         const snippet = snippetsMap.get(selector.name)!
 
         // 检查循环展开
-        invariant(!expanded.includes(snippet.name), msg.circularSnippetExpansion(expanded.concat(snippet.name)))
+        invariant(!expanded.has(snippet.name), msg.circularSnippetExpansion([...expanded, snippet.name]))
 
         // 使用缓存获取已展开的片段
-        const cacheKey = snippet.name + ':' + expanded.join(',')
-        if (snippetExpandCache?.has(cacheKey)) {
+        const cacheKey = snippet.name + ':' + [...expanded].join(',')
+        if (snippetExpandCache.has(cacheKey)) {
           result.push(...snippetExpandCache.get(cacheKey)!)
         } else {
-          const nextExpanded = expanded.concat(snippet.name)
+          const nextExpanded = new Set(expanded).add(snippet.name)
           const slice = expandSnippets(snippet.selectors, nextExpanded)
           snippetExpandCache.set(cacheKey, slice)
           result.push(...slice)
@@ -215,17 +189,7 @@ export default function temme(
     selector: NormalSelector | ParentRefSelector,
   ) {
     const section = selector.type === 'normal-selector' ? last(selector.sections) : selector.section
-    
-    // 缓存属性限定符过滤结果
-    let attributeQualifiers;
-    if (qualifierCache?.has(section)) {
-      attributeQualifiers = qualifierCache.get(section)!;
-    } else {
-      attributeQualifiers = section.qualifiers.filter(isAttributeQualifier);
-      qualifierCache.set(section, attributeQualifiers);
-    }
-    
-    // 优化属性捕获
+    const attributeQualifiers = section.qualifiers.filter(isAttributeQualifier)
     for (let i = 0; i < attributeQualifiers.length; i++) {
       const qualifier = attributeQualifiers[i];
       if (isCapture(qualifier.value)) {
