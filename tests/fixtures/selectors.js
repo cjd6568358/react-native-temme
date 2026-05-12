@@ -2,6 +2,7 @@ export default {
     login: `
     input[name=formhash][value=$formhash];
     `,
+
     home: `
     head title{$title};
     head link[rel=apple-touch-icon][href=$iconUrl];
@@ -38,6 +39,7 @@ export default {
         }
     };
     `,
+
     pm: `
     input[name=formhash][value=$formhash];
     #menu ul li:first-child cite a[href=$uid|replace(/\\D/g,'')]{$username};
@@ -48,9 +50,11 @@ export default {
         td:nth-child(4){$date};
     }
     `,
+
     reply: `
     input[name=formhash][value=$formhash];
     `,
+
     favorites: `
     input[name=formhash][value=$formhash];
     #menu ul li:first-child cite a[href=$uid|replace(/\\D/g,'')]{$username};
@@ -66,6 +70,9 @@ export default {
         }
     }
     `,
+
+    // 片段优化：forum 中 @lastPost|pack{ ... } 出现 3 次且结构相同
+    // 通过 @lastPost = { ... } 片段定义 + @lastPost; 展开来消除重复
     forum: `
     .box.message p b{$error};
     input[name=formhash][value=$formhash];
@@ -95,10 +102,15 @@ export default {
         &[href=$href]{$name}
         &[href=$id|replace(/^.*typeid=/,'')];
     };
+    @lastPost = {
+        em a[href=$href]{$date};
+        cite a{$author};
+    };
     .mainbox.threadlist table@categorys{
         $name = "公告";
-        thead.separation td:nth-child(3){$name|trim|replace(/\\s/g,'')};
-        tbody tr:not(.category)@threads{
+        > thead.separation td:nth-child(3){$name|trim|replace(/\\s/g,'')};
+        > tr.category thead.separation td:nth-child(3){$name|trim|replace(/\\s/g,'')};
+        > tbody > tr:not(.category)@threads{
             th em a@tag|pack{
                 &[href=$id|replace(/^.*typeid=/,'')]{$name}
             }
@@ -113,8 +125,7 @@ export default {
             td.nums strong{$reply|Number}
             td.nums em{$view|Number}
             td.lastpost@lastPost|pack{
-                em a[href=$href]{$date}
-                cite a{$author}
+                @lastPost;
             }
         }
     }
@@ -129,6 +140,7 @@ export default {
         }
     }
     `,
+
     thread: `
     .box.message p b{$error};
     input[name=formhash][value=$formhash];
@@ -140,20 +152,20 @@ export default {
     #postform[action=$replyUrl];
     #ajax_favorite[href=$favoriteUrl];
     #ajax_favorite[href=$tid|replace(/\\D/g,'')|Number];
-    form .mainbox.viewthread@posts{
+    .mainbox.viewthread@posts{
         .postauthor@author|pack{
             >cite{$name|trim};
             >cite a[href=$uid|replace(/\\D/g,'')|Number]{$name};
             >.avatar>img:first-child[src=$avatar];
             >p:nth-of-type(1){$level};
-            dl.profile{$profile|split(' ')|compact}
+            dl.profile{$profile|split(/\\u00a0/)|compact}
         }
         >table[id=$pid|replace(/\\D/g,'')];
         .postcontent .postinfo strong{$floor|replace(/\\D/g,'')|Number}
         .postcontent .postinfo{$date|match(/(\\d{4}.*\\d{2})/)|first}
         .postcontent>.postmessage>.postratings b{$thanks|Number}
-        .postcontent>.postmessage .t_msgfont[id^=postmessage_]{html($content)}
-        .postcontent>.postmessage .t_msgfont .t_msgfont[id^=postmessage_]{html($content)}
+        .postcontent>.postmessage .t_msgfont[id^=postmessage_]{html($content|replace(/\\r/g,''))}
+        .postcontent>.postmessage .t_msgfont .t_msgfont[id^=postmessage_]{html($content|replace(/\\r/g,''))}
         .postcontent>.postmessage>.notice{html($notice)}
         .postcontent>.postmessage .postattachlist .t_attachlist@attachments{
           dt img[src=$icon];
@@ -163,7 +175,7 @@ export default {
           dl p:last-child img[src=$url];
         }
         .postcontent>.postmessage fieldset ul li@legend{
-          &{$|trim|replace(/\\t*/g,'')|replace(/\\n/g,' ')};
+          &{$|trim|replace(/\\t*/g,'')|replace(/\\r/g,'')|replace(/\\n/g,' ')};
         }
     };
     form+.pages_btns .pages@pagination|pack{
@@ -175,6 +187,7 @@ export default {
         }
     }
     `,
+
     post: `
     input[name=formhash][value=$formhash];
     #newpost thead+tbody tr:has(.altbg1)@extra_params{
@@ -190,6 +203,7 @@ export default {
     #fastUploadFlashBody+tbody{$upload_limits|trim|split(/\\n|\\t/)|compact}
     #postform[action=$post_action];
     `,
+
     my: `
     .credits_info ul>li@creditList{
         &{$|trim()}
@@ -221,6 +235,7 @@ export default {
         td:nth-child(4){$status}
     }
     `,
+
     profile: `
     .credits_info ul>li@creditList{
         &{$|trim()}
@@ -238,9 +253,11 @@ export default {
       td.time{$time}
     }
     `,
+
     search: `
     input[name=formhash][value=$formhash];
     `,
+
     searchResult: `
     .mainbox.threadlist tbody@threads{
         th a[href=$href]{$title};
@@ -271,12 +288,12 @@ export default {
 }
 
 export const selectorsMap = {
-    // home: ['index.html'],
-    // pm: ['pm.html'],
+    home: ['index.html'],
+    pm: ['pm.html'],
     forum: ['forum-198-1.html'],
-    // thread: ['thread-12681308-1-1.html', "thread-12764094-1-1", "thread-12774140-1-1", "thread-12845354-1-1"],
-    // search: ['search.html'],
-    // profile: ['profile.html'],
-    // my: ['my.html'],
-    // favorites: ['favorites.html', "favorites_forum.html"]
+    thread: ['thread-12681308-1-1.html', "thread-12764094-1-1", "thread-12774140-1-1", "thread-12845354-1-1"],
+    search: ['search.html'],
+    profile: ['profile.html'],
+    my: ['my.html'],
+    favorites: ['favorites.html', "favorites_forum.html"]
 }
