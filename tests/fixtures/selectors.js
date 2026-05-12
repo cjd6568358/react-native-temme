@@ -175,7 +175,7 @@ export default {
           dl p:last-child img[src=$url];
         }
         .postcontent>.postmessage fieldset ul li@legend{
-          &{$|trim|replace(/\\t*/g,'')|replace(/\\r/g,'')|replace(/\\n/g,' ')};
+          &{$|trim|replace(/[\\t\\r]/g,'')|replace(/\\n/g,' ')};
         }
     };
     form+.pages_btns .pages@pagination|pack{
