@@ -86,7 +86,7 @@ export default {
     #ajax_favorite[href=$fid|replace(/\\D/g,'')|Number];
     #newspecial a[href=$new_special];
     .mainbox.threadlist+.pages_btns .pages@pagination|pack{
-        em{$total|Number};
+        em{$total|replace(/&nbsp;/g,'')|Number};
         strong{$current|Number};
         a.last{$last|replace(/\\D/g,'')|Number}
         a:not(.prev,.next,.last)@siblings{
@@ -164,8 +164,8 @@ export default {
         .postcontent .postinfo strong{$floor|replace(/\\D/g,'')|Number}
         .postcontent .postinfo{$date|match(/(\\d{4}.*\\d{2})/)|first}
         .postcontent>.postmessage>.postratings b{$thanks|Number}
-        .postcontent>.postmessage .t_msgfont[id^=postmessage_]{html($content|replace(/\\r/g,''))}
-        .postcontent>.postmessage .t_msgfont .t_msgfont[id^=postmessage_]{html($content|replace(/\\r/g,''))}
+        .postcontent>.postmessage .t_msgfont[id^=postmessage_]{html($content|replace(/\\r/g,'')|replace(/&nbsp;/g,' '))}
+        .postcontent>.postmessage .t_msgfont .t_msgfont[id^=postmessage_]{html($content|replace(/&nbsp;/g,' '))}
         .postcontent>.postmessage>.notice{html($notice)}
         .postcontent>.postmessage .postattachlist .t_attachlist@attachments{
           dt img[src=$icon];
@@ -179,7 +179,7 @@ export default {
         }
     };
     form+.pages_btns .pages@pagination|pack{
-        em{$total|Number};
+        em{$total|replace(/&nbsp;/g,'')|Number};
         strong{$current|Number};
         a.last{$last|replace(/\\D/g,'')|Number}
         a:not(.prev,.next,.last)@siblings{
@@ -277,7 +277,7 @@ export default {
         }
     };
     .pages_btns .pages@pagination|pack{
-        em{$total|Number};
+        em{$total|replace(/&nbsp;/g,'')|Number};
         strong{$current|Number};
         a:not(.prev,.next,.last)@siblings{
             &[href=$href]{$page|Number}

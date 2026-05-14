@@ -44,6 +44,8 @@ export function htmlShaking(html: string): string {
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<!--[\s\S]*?-->/g, "")
       .replace(/&amp;/g, "&")
+      .replace(/&#160;/g, "&nbsp;")
+      .replace(/&#039;|&apos;/g, "'")
   );
 }
 
