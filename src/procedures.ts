@@ -1,4 +1,3 @@
-import cheerio from 'react-native-cheerio'
 import invariant from 'invariant'
 import { Capture, Dict, Literal } from './interfaces'
 import { CaptureResult } from './CaptureResult'
@@ -18,7 +17,7 @@ function html(result: CaptureResult, node: any, capture: Capture) {
 }
 
 function node(result: CaptureResult, node: any, capture: Capture) {
-  result.add(capture, cheerio(node))
+  result.add(capture, node)
 }
 
 /** Try to capture text within a node's text.

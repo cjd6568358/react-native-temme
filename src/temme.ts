@@ -44,8 +44,10 @@ export function htmlShaking(html: string): string {
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<!--[\s\S]*?-->/g, "")
       .replace(/&amp;/g, "&")
-      .replace(/&#160;/g, "&nbsp;")
-      .replace(/&#039;|&apos;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/ (alt|checked|disabled|selected|readonly|multiple|nowrap|noshade|noresize|declare|defer|ismap)=""/g, ' $1')
   );
 }
 

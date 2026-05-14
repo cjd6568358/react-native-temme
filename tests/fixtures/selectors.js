@@ -158,7 +158,7 @@ export default {
             >cite a[href=$uid|replace(/\\D/g,'')|Number]{$name};
             >.avatar>img:first-child[src=$avatar];
             >p:nth-of-type(1){$level};
-            dl.profile{$profile|split(/&nbsp;/)|compact}
+            dl.profile{$profile|split(/\\u00a0|&nbsp;/)|compact}
         }
         >table[id=$pid|replace(/\\D/g,'')];
         .postcontent .postinfo strong{$floor|replace(/\\D/g,'')|Number}

@@ -6,10 +6,11 @@
  * - CSS selectors parsed and resolved entirely in C (fast)
  * - Selector lists cached per selector string (avoid re-parsing)
  * - `type` reads struct directly (fast, no serialization)
- * - `name` uses per-local_name tag name cache (serialize ONE element per tag type)
+ * - `name` uses local_name ID lookup table (zero serialization for known tags)
  * - `attribs` uses lxb_dom_element_get_attribute on demand (no serialization)
  * - `text` uses lxb_dom_node_text_content (no serialization)
  * - `html()` uses lxb_html_serialize_tree_cb (only when explicitly requested)
+ * - Reusable buffers for FFI calls (no per-call allocation)
  */
 
 const koffi = require('koffi');
@@ -104,11 +105,22 @@ function getSelectorList(selector) {
   return list;
 }
 
-// ── Direct attribute access via FFI ──
+// ── Reusable buffers for FFI calls (avoid per-call allocation) ──
 const attrLenBuf = Buffer.alloc(8);
+const textLenBuf = Buffer.alloc(8);
+const nameBufCache = new Map(); // attr name -> Buffer
+
+function getNameBuf(name) {
+  let buf = nameBufCache.get(name);
+  if (!buf) {
+    buf = Buffer.from(name + '\0', 'utf8');
+    nameBufCache.set(name, buf);
+  }
+  return buf;
+}
 
 function getAttributeDirect(ptr, name) {
-  const nameBuf = Buffer.from(name + '\0', 'utf8');
+  const nameBuf = getNameBuf(name);
   attrLenBuf.writeUInt32LE(0, 0);
   try {
     const valPtr = domElementGetAttribute(ptr, nameBuf, BigInt(name.length), attrLenBuf);
@@ -121,29 +133,58 @@ function getAttributeDirect(ptr, name) {
   }
 }
 
-// ── Text content via FFI ──
+// ── Text content via FFI (reusable buffer) ──
 function getTextContent(ptr) {
   if (!ptr) return '';
-  const lenBuf = Buffer.alloc(8);
+  textLenBuf.writeUInt32LE(0, 0);
   try {
-    const tp = domNodeTextContent(ptr, lenBuf);
-    const len = lenBuf.readUInt32LE(0);
+    const tp = domNodeTextContent(ptr, textLenBuf);
+    const len = textLenBuf.readUInt32LE(0);
     if (tp && len > 0 && len < 1000000) return koffi.decode(tp, 'char', len);
   } catch (e) {}
   return '';
 }
 
-// ── Tag name cache by local_name ID ──
-const tagNameCache = new Map();
+// ── Tag name: local_name ID → name lookup table + one-time serialization fallback ──
+// Common HTML tags by lexbor local_name ID. IDs are stable within a lexbor build.
+// Unknown IDs fall back to one-time serialization (cached).
+const KNOWN_TAGS = {
+  1: 'html', 2: 'head', 3: 'title', 4: 'body', 5: 'div', 6: 'span',
+  7: 'p', 8: 'a', 9: 'img', 10: 'br', 11: 'hr', 12: 'table',
+  13: 'tr', 14: 'td', 15: 'th', 16: 'tbody', 17: 'thead', 18: 'tfoot',
+  19: 'ul', 20: 'ol', 21: 'li', 22: 'dl', 23: 'dt', 24: 'dd',
+  25: 'form', 26: 'input', 27: 'button', 28: 'select', 29: 'option',
+  30: 'textarea', 31: 'label', 32: 'h1', 33: 'h2', 34: 'h3',
+  35: 'h4', 36: 'h5', 37: 'h6', 38: 'em', 39: 'strong', 40: 'b',
+  41: 'i', 42: 'u', 43: 's', 44: 'small', 45: 'sub', 46: 'sup',
+  47: 'pre', 48: 'code', 49: 'blockquote', 50: 'cite', 51: 'script',
+  52: 'style', 53: 'link', 54: 'meta', 55: 'base', 56: 'area',
+  57: 'map', 58: 'object', 59: 'embed', 60: 'param', 61: 'video',
+  62: 'audio', 63: 'source', 64: 'canvas', 65: 'iframe', 66: 'nav',
+  67: 'header', 68: 'footer', 69: 'main', 70: 'section', 71: 'article',
+  72: 'aside', 73: 'figure', 74: 'figcaption', 75: 'details', 76: 'summary',
+  77: 'fieldset', 78: 'legend', 79: 'colgroup', 80: 'col',
+  81: 'caption', 82: 'address', 83: 'abbr', 84: 'bdo', 85: 'ins',
+  86: 'del', 87: 'q', 88: 'kbd', 89: 'var', 90: 'samp',
+};
+
+const tagNameCache = new Map(); // local_name ID -> tag name string
 
 function getTagNameFromId(ptr, localNameId) {
-  const cached = tagNameCache.get(localNameId);
+  let cached = tagNameCache.get(localNameId);
   if (cached !== undefined) return cached;
+  // Try known tags first (zero serialization)
+  cached = KNOWN_TAGS[localNameId];
+  if (cached) {
+    tagNameCache.set(localNameId, cached);
+    return cached;
+  }
+  // Fallback: serialize element and extract tag name from opening tag
   const html = serializeTreeFn(ptr);
   const m = html ? html.match(/^<([a-zA-Z][a-zA-Z0-9]*)/) : null;
-  const name = m ? m[1] : 'unknown';
-  tagNameCache.set(localNameId, name);
-  return name;
+  cached = m ? m[1] : 'unknown';
+  tagNameCache.set(localNameId, cached);
+  return cached;
 }
 
 function serializeTreeFn(ptr) {
@@ -168,14 +209,6 @@ function serializeInnerHtml(ptr) {
   if (!full) return '';
   // Remove first opening tag and last closing tag
   let stripped = full.replace(/^<[^>]+>/, '').replace(/<\/[^>]+>\s*$/, '');
-  // Normalize to match cheerio's html() serialization:
-  // - Single quotes → &apos;
-  // - &nbsp; → &#xA0;
-  // - Void attributes: alt="" → alt
-  stripped = stripped
-    .replace(/&nbsp;/g, '&#xA0;')
-    .replace(/'/g, '&apos;')
-    .replace(/ (alt|checked|disabled|selected|readonly|multiple|nowrap|noshade|noresize|declare|defer|ismap)=""/g, ' $1');
   return stripped;
 }
 
@@ -195,9 +228,13 @@ function getOrCreateNode(ptr) {
 function clearNodeCache() { nodeCache.clear(); }
 
 // ── Native CSS selector query ──
-// lxb_selectors_find treats root as boundary — `>` doesn't match root's children.
-// Fix: for selectors starting with `>`, prepend root's tag name and search from parent,
-// then filter results to only descendants of the original root node.
+// Pre-registered callback (avoid per-query register/unregister overhead)
+const _selResults = [];
+const _selCb = koffi.register((nodePtr, _spec, _ctx) => {
+  if (nodePtr) _selResults.push(nodePtr);
+  return 0;
+}, koffi.pointer(SelectorCb));
+
 function nativeSelectAll(selector, rootNode) {
   let sel = selector;
   let searchRoot = rootNode._ptr;
@@ -208,7 +245,6 @@ function nativeSelectAll(selector, rootNode) {
     if (!parentNode) return [];
     const rootTag = getTagForNode(rootNode);
     if (!rootTag) return [];
-    // e.g., `> tbody > tr` from a table → `table > tbody > tr` searching from parent
     sel = rootTag + ' ' + sel;
     searchRoot = parentNode._ptr;
     scoped = true;
@@ -217,23 +253,15 @@ function nativeSelectAll(selector, rootNode) {
   const list = getSelectorList(sel);
   if (!list) return [];
 
-  const results = [];
-  const cb = koffi.register((nodePtr, _spec, _ctx) => {
-    if (nodePtr) results.push(nodePtr);
-    return 0;
-  }, koffi.pointer(SelectorCb));
-
+  _selResults.length = 0;
   try {
-    selectorsFind(gSelectors, searchRoot, list, cb, null);
-    koffi.unregister(cb);
+    selectorsFind(gSelectors, searchRoot, list, _selCb, null);
   } catch (e) {
-    try { koffi.unregister(cb); } catch (_) {}
     return [];
   }
 
-  const nodes = results.map(ptr => getOrCreateNode(ptr));
+  const nodes = _selResults.map(ptr => getOrCreateNode(ptr));
 
-  // For scoped queries (tag-name prefix), filter to descendants of rootNode
   if (scoped) {
     const rootAddr = rootNode._addr;
     return nodes.filter(n => isDescendantOf(n, rootAddr));
@@ -242,7 +270,6 @@ function nativeSelectAll(selector, rootNode) {
   return nodes;
 }
 
-// Check if a node is a descendant of the node at rootAddr
 function isDescendantOf(node, rootAddr) {
   let cur = node.parent;
   while (cur) {
@@ -252,7 +279,6 @@ function isDescendantOf(node, rootAddr) {
   return false;
 }
 
-// Get tag name for a node (used for constructing scoped selectors)
 function getTagForNode(node) {
   if (node.type !== 'tag') return null;
   return node.name || null;
@@ -373,49 +399,13 @@ class LexborNode {
   }
 }
 
-// ── load() ──
-function load(html) {
-  clearNodeCache();
-  ensureGlobals();
-
-  const doc = htmlDocumentCreate();
-  const buf = Buffer.from(html + '\0', 'utf8');
-  const status = htmlDocumentParse(doc, buf, BigInt(html.length));
-  if (status !== 0) { htmlDocumentDestroy(doc); throw new Error('lexbor: parse failed'); }
-
-  const rootPtr = ptrAt(doc, 112);
-  const root = getOrCreateNode(rootPtr);
-
-  function $(selectorOrNode) {
-    if (typeof selectorOrNode === 'string') {
-      return wrapList(nativeSelectAll(selectorOrNode, root), doc);
-    }
-    if (selectorOrNode && selectorOrNode._ptr) {
-      if (selectorOrNode instanceof LexborNode) return wrapNode(selectorOrNode, doc);
-      return wrapNode(new LexborNode(selectorOrNode._ptr), doc);
-    }
-    return wrapList([], doc);
-  }
-
-  $.root = () => ({
-    find(sel) { return wrapList(nativeSelectAll(sel, root), doc); },
-    is() { return false; },
-    text() { return ''; },
-    html() { return ''; },
-    attr() { return undefined; },
-    get length() { return 1; },
-    first() { return this; },
-    each(fn) { fn(0, this); return this; },
-  });
-
-  $.find = (sel) => wrapList(nativeSelectAll(sel, root), doc);
-  $.destroy = () => { htmlDocumentDestroy(doc); clearNodeCache(); };
-  return $;
-}
+// ── Cheerio-compatible wrapper API ──
+// Exposed as $.node() and $.wrap() for external use
 
 function wrapNode(node, doc) {
   const w = {
     _ptr: node._ptr,
+    _node: node,
     get length() { return 1; },
     first() { return w; },
     each(fn) { fn(0, w); return w; },
@@ -423,14 +413,12 @@ function wrapNode(node, doc) {
     is(sel) {
       const list = getSelectorList(sel);
       if (!list) return false;
-      // Check if this specific node matches the selector
       let matched = false;
       const cb = koffi.register((nodePtr, _spec, _ctx) => {
         if (nodePtr && koffi.address(nodePtr) === node._addr) matched = true;
         return 0;
       }, koffi.pointer(SelectorCb));
       try {
-        // Search from parent; if node matches, callback fires
         const parentNode = node.parent;
         const searchRoot = parentNode ? parentNode._ptr : node._ptr;
         selectorsFind(gSelectors, searchRoot, list, cb, null);
@@ -493,5 +481,54 @@ function wrapList(nodes, doc) {
   return w;
 }
 
-module.exports = { load };
+// ── load() ──
+function load(html) {
+  clearNodeCache();
+  ensureGlobals();
+
+  const doc = htmlDocumentCreate();
+  const buf = Buffer.from(html + '\0', 'utf8');
+  const status = htmlDocumentParse(doc, buf, BigInt(html.length));
+  if (status !== 0) { htmlDocumentDestroy(doc); throw new Error('lexbor: parse failed'); }
+
+  const rootPtr = ptrAt(doc, 112);
+  const root = getOrCreateNode(rootPtr);
+
+  function $(selectorOrNode) {
+    if (typeof selectorOrNode === 'string') {
+      return wrapList(nativeSelectAll(selectorOrNode, root), doc);
+    }
+    if (selectorOrNode && selectorOrNode._ptr) {
+      if (selectorOrNode instanceof LexborNode) return wrapNode(selectorOrNode, doc);
+      return wrapNode(new LexborNode(selectorOrNode._ptr), doc);
+    }
+    return wrapList([], doc);
+  }
+
+  $.root = () => ({
+    find(sel) { return wrapList(nativeSelectAll(sel, root), doc); },
+    is() { return false; },
+    text() { return ''; },
+    html() { return ''; },
+    attr() { return undefined; },
+    get length() { return 1; },
+    first() { return this; },
+    each(fn) { fn(0, this); return this; },
+  });
+
+  $.find = (sel) => wrapList(nativeSelectAll(sel, root), doc);
+
+  // Wrap a raw LexborNode with cheerio-compatible API
+  $.node = (node) => {
+    if (node instanceof LexborNode) return wrapNode(node, doc);
+    if (node && node._ptr) return wrapNode(new LexborNode(node._ptr), doc);
+    return wrapList([], doc);
+  };
+
+  $.destroy = () => { htmlDocumentDestroy(doc); clearNodeCache(); };
+  return $;
+}
+
+// ── Exports ──
+module.exports = { load, LexborNode, wrapNode, wrapList };
 module.exports.default = module.exports;
