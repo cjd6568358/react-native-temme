@@ -5,3 +5,14 @@ build/
 .DS_Store
 *.log
 coverage/
+
+# Native build artifacts (keep only runtime DLL)
+native/x64/lexbor.exp
+native/x64/lexbor.lib
+native/x64/lexbor_static.lib
+
+# Claude Code local settings
+.claude/
+
+# Credential/secret files
+mimo-v2.md

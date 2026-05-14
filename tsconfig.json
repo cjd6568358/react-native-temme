@@ -7,7 +7,8 @@
     "outDir": "./dist",
     "rootDir": ".",
     "types": ["jest", "node"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noImplicitAny": false
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]
