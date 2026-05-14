@@ -31,9 +31,5 @@
     "ts-jest": "^29.4.9",
     "typescript": "^6.0.3"
   },
-  "devDependencies": {
-    "css-select": "^7.0.0",
-    "domhandler": "^6.0.1",
-    "domutils": "^4.0.2"
-  }
+  "devDependencies": {}
 }

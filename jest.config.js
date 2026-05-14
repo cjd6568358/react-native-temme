@@ -6,7 +6,7 @@ module.exports = {
     '^.+\\.[tj]sx?$': ['ts-jest', { diagnostics: false }],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(css-select|css-what|boolbase|domhandler|domutils|dom-serializer|entities|nth-check|domelementtype)/)',
+    'node_modules/(?!(react-native-cheerio)/)',
   ],
   testMatch: ['**/tests/**/*.test.ts'],
 }
