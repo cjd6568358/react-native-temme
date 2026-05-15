@@ -1,0 +1,45 @@
+name: Lexbor Android ARM64 Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native/lexbor-android-arm64-v8a/**'
+      - 'src/**'
+      - 'tests/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'native/lexbor-android-arm64-v8a/**'
+      - 'src/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+jobs:
+  test-lexbor-android-arm64:
+    name: Lexbor Android ARM64 test
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify .so file
+        run: |
+          ls -la native/lexbor-android-arm64-v8a/bin/lib/liblexbor.so
+          file native/lexbor-android-arm64-v8a/bin/lib/liblexbor.so
+
+      - name: Run lexbor android arm64 tests
+        env:
+          LEXBOR_LIB_PATH: ./native/lexbor-android-arm64-v8a/bin/lib/liblexbor.so
+        run: npx jest lexbor-android-arm64 --verbose
