@@ -18,28 +18,52 @@ on:
 jobs:
   test-lexbor-android-arm64:
     name: Lexbor Android ARM64 test
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+      - name: Install QEMU user-mode
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
 
-      - name: Install dependencies
-        run: npm install
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
 
       - name: Verify .so file
         run: |
           ls -la native/lexbor-android-arm64-v8a/bin/lib/liblexbor.so
           file native/lexbor-android-arm64-v8a/bin/lib/liblexbor.so
 
-      - name: Run lexbor android arm64 tests
-        env:
-          LEXBOR_LIB_PATH: ./native/lexbor-android-arm64-v8a/bin/lib/liblexbor.so
-        run: npx jest lexbor-android-arm64 --verbose
+      - name: Run lexbor android arm64 C tests via QEMU
+        run: |
+          NDK_BIN="${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          CC="${NDK_BIN}/aarch64-linux-android24-clang"
+          SYSROOT="${NDK_BIN}/../sysroot"
+          INCLUDE_DIR="native/lexbor-android-arm64-v8a/bin/include"
+          LIB_DIR="native/lexbor-android-arm64-v8a/bin/lib"
+
+          # Compile test_lexbor.c with Android NDK
+          $CC \
+            -I "$INCLUDE_DIR" \
+            -L "$LIB_DIR" \
+            native/lexbor-android-arm64-v8a/test_lexbor.c \
+            -llexbor \
+            -Wl,-rpath,\$ORIGIN \
+            -o test_lexbor_arm64
+
+          file test_lexbor_arm64
+
+          # Copy .so next to binary
+          cp "$LIB_DIR/liblexbor.so" .
+
+          # Run via QEMU with Android sysroot
+          chmod +x test_lexbor_arm64
+          LD_LIBRARY_PATH="$(pwd)" \
+          qemu-aarch64-static -L "$SYSROOT" ./test_lexbor_arm64
